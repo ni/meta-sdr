@@ -13,7 +13,7 @@ LIC_FILES_CHKSUM = " \
 
 DEPENDS = "libusb1 libtecla"
 
-SRC_URI = "git://github.com/Nuand/bladeRF.git;protocol=git;branch=master"
+SRC_URI = "git://github.com/Nuand/bladeRF.git;protocol=https;branch=master"
 SRCREV = "ab12ebd3fb843a6df53521fbc2d47c32b835f5dd"
 
 S = "${WORKDIR}/git"
