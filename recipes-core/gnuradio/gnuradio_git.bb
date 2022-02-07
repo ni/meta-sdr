@@ -212,19 +212,18 @@ python populate_packages_prepend() {
         d.appendVar('RDEPENDS_'+pn+'-dev', ' '+' '.join(pkgs))
 }
 
-#PV = "3.9.0+git${SRCPV}"
-PV = "3.9.2.0"
+#PV = "3.9.4+git${SRCPV}"
+PV = "3.9.5.0"
 
 FILESPATHPKG_prepend = "gnuradio-git:"
 
-SRCREV ="c98adfbdbb88c08734a1507d6257755611b947c5"
+SRCREV ="cb2ab8dd1555ec08a9afbfec675b6a7c8d9dbc90"
 
 # Make it easy to test against branches
 GIT_BRANCH = "maint-3.9"
 GITHUB_USER = "gnuradio"
 
 SRC_URI = "git://github.com/${GITHUB_USER}/gnuradio.git;branch=${GIT_BRANCH};protocol=https \
-           file://0001-When-cross-compiling-gnuradio-change-how-the-test-fi.patch \
            file://run-ptest \
           "
 
