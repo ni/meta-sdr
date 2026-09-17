@@ -11,7 +11,8 @@
 # licenses then you should change the value to separate the licenses with OR
 # instead of AND. If there is any doubt, check the accompanying documentation
 # to determine which situation is applicable.
-LICENSE = "GPL-3.0-only AND MIT"
+# wrynose's oe-core license-format QA doesn't understand SPDX AND yet; use &.
+LICENSE = "GPL-3.0-only & MIT"
 LIC_FILES_CHKSUM = "file://blocks/analog/LICENSE;md5=8ea682db15fffa46d31a4badd40a709b \
                     file://blocks/basic/LICENSE;md5=8ea682db15fffa46d31a4badd40a709b \
                     file://blocks/channel/LICENSE;md5=8ea682db15fffa46d31a4badd40a709b \
