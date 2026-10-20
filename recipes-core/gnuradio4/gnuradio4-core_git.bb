@@ -3,13 +3,14 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=b2d3fb84bc5ba2e8e9f06a3100f1e458"
 
 SRC_URI = "git://github.com/gnuradio/gnuradio4-core.git;protocol=https;branch=main \
            file://0001-Fix-qa-test-for-case-when-buffer-is-larger-than-requ.patch \
+           file://0002-qa_SchedulerLifecycle-build-without-the-cross-object.patch \
            file://run-ptest \
            "
 
 
 # Modify these as desired
 PV = "1.0+git"
-SRCREV = "f7398ba9a437d56c37f1b5348eab5153867b0efb"
+SRCREV = "b31d4547e02b4a8797d2dacfe85d4038395f1160"
 
 # NOTE: unable to map the following CMake package dependencies: TBB ut httplib Python3
 inherit cmake pkgconfig ptest
@@ -38,8 +39,12 @@ FILES:${PN}-dev += "${libdir}/GnuRadioBlockLib"
 # have no SONAME/version and are the only artifact (not a symlink to a
 # versioned .so), so they belong in the runtime package rather than the
 # default -dev catch-all for unversioned .so files (FILES_SOLIBSDEV).
+# libgnuradio-shared-state.so is likewise unversioned (its SONAME is the bare
+# .so name), but it is a regular link-time library: consumers record it in
+# DT_NEEDED, so it too must ship in the runtime package.
 FILES_SOLIBSDEV = ""
-FILES:${PN} += "${libdir}/libgnuradio-blocklib-core.so ${libdir}/libgnuradio-plugin.so"
+FILES:${PN} += "${libdir}/libgnuradio-blocklib-core.so ${libdir}/libgnuradio-plugin.so \
+                ${libdir}/libgnuradio-shared-state.so"
 
 # config.hpp bakes in the literal build-time compiler path/flags used to build
 # this recipe (CXX_COMPILER_PATH/CXX_COMPILER_FLAGS) for the project's runtime
@@ -61,14 +66,18 @@ do_install_ptest() {
     # directory, and it binds a fixed local TCP port to run an embedded HTTP
     # server -- neither works once the binary is relocated onto the target
     # for ptest.
-    # qa_PluginBlockLibrary and qa_PluginRegistration are excluded for the
-    # same reason: they have TESTS_BINARY_PATH (the recipe's build-host
-    # ${B}/core/test) compiled in to locate the plugin .so fixtures that
-    # core/test/plugins/CMakeLists.txt builds next to them, and those
-    # fixtures are never installed alongside the ptest binaries.
+    # qa_PluginBlockLibrary, qa_PluginRegistration and qa_PluginAbiVersion
+    # are excluded for the same reason: they have TESTS_BINARY_PATH (the
+    # recipe's build-host ${B}/core/test) compiled in to locate the plugin
+    # .so fixtures that core/test/plugins/CMakeLists.txt builds next to
+    # them, and those fixtures are never installed alongside the ptest
+    # binaries. qa_SharedObjectState is excluded for the same reason: every
+    # case loads the cross_object_library fixture from TESTS_BINARY_PATH.
+    # (qa_SchedulerLifecycle's cases that need that fixture are compiled out
+    # by 0002-qa_SchedulerLifecycle-build-without-the-cross-object.patch.)
     for t in ${B}/core/test/qa_*; do
         case $(basename ${t}) in
-            qa_SubGraphAssets|qa_PluginBlockLibrary|qa_PluginRegistration) continue ;;
+            qa_SubGraphAssets|qa_PluginBlockLibrary|qa_PluginRegistration|qa_PluginAbiVersion|qa_SharedObjectState) continue ;;
         esac
         install -m 0755 ${t} ${D}${PTEST_PATH}/core/test/
     done

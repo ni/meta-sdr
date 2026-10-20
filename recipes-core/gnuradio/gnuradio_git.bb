@@ -8,12 +8,12 @@ DEPENDS = "volk gsl fftw python3 python3-six-native alsa-lib boost \
            python3-mako-native git-native gmp libsndfile1 \
            python3-packaging-native"
 
-#Available PACKAGECONFIG options are qtgui5 grc uhd logging orc ctrlport zeromq staticlibs
-PACKAGECONFIG ??= "qtgui5 grc zeromq"
+#Available PACKAGECONFIG options are qtgui grc uhd logging orc ctrlport zeromq staticlibs
+PACKAGECONFIG ??= "grc zeromq"
 
-PACKAGECONFIG[qtgui5] = "-DENABLE_GR_QTGUI=ON \
-                 ,-DENABLE_GR_QTGUI=OFF,qtbase qwt-qt5 python3-pyqt5 \
-                 ,python3-pyqt5"
+# qtgui needs meta-qt6 (qtbase, qtsvg) and the qwt-qt6 and python3-pyqt6
+# recipes in meta-sdr's dynamic-layers/qt6-layer.
+PACKAGECONFIG[qtgui] = "-DENABLE_GR_QTGUI=ON,-DENABLE_GR_QTGUI=OFF,qtbase qtsvg qwt-qt6"
 PACKAGECONFIG[grc] = "-DENABLE_GRC=ON,-DENABLE_GRC=OFF, , "
 PACKAGECONFIG[uhd] = "-DENABLE_GR_UHD=ON,-DENABLE_GR_UHD=OFF,uhd,"
 PACKAGECONFIG[logging] = "-DENABLE_GR_LOG=ON,-DENABLE_GR_LOG=OFF,log4cpp, "
@@ -23,7 +23,7 @@ PACKAGECONFIG[zeromq] = "-DENABLE_GR_ZEROMQ=ON,-DENABLE_GR_ZEROMQ=OFF,cppzmq pyt
 PACKAGECONFIG[staticlibs] = "-DENABLE_STATIC_LIBS=ON,-DENABLE_STATIC_LIBS=OFF "
 
 inherit setuptools3-base cmake pkgconfig python3native mime mime-xdg ptest
-inherit ${@bb.utils.contains('PACKAGECONFIG', 'qtgui5',' cmake_qt5', '', d)}
+inherit ${@bb.utils.contains('PACKAGECONFIG', 'qtgui', 'qt6-cmake', '', d)}
 
 export BUILD_SYS
 export HOST_SYS = "${MULTIMACH_TARGET_SYS}"
@@ -39,6 +39,8 @@ RRECOMMENDS:${PN} = "${GR_PACKAGES}"
 RDEPENDS:${PN}-grc = "python3-mako python3-pyyaml python3-pygobject gtk+3 cairo adwaita-icon-theme"
 
 RDEPENDS:${PN}-zeromq = "python3-pyzmq"
+
+RDEPENDS:${PN}-qtgui = "python3-pyqt6"
 
 C_FILES_CHKSUM = "file://COPYING;md5=d32239bcb673463ab874e80d47fae504"
 
@@ -67,8 +69,7 @@ GR_PACKAGES = "gnuradio-analog gnuradio-audio gnuradio-blocks \
             gnuradio-doc gnuradio-zeromq \
             "
 GR_PACKAGES += "${@bb.utils.contains('DISTRO_FEATURES', 'ptest', 'gnuradio-ptest', '', d)}"
-GR_PACKAGES += "${@bb.utils.contains('PACKAGECONFIG', 'qtgui4', 'gnuradio-qtgui', '', d)}"
-GR_PACKAGES += "${@bb.utils.contains('PACKAGECONFIG', 'qtgui5', 'gnuradio-qtgui', '', d)}"
+GR_PACKAGES += "${@bb.utils.contains('PACKAGECONFIG', 'qtgui', 'gnuradio-qtgui', '', d)}"
 GR_PACKAGES += "${@bb.utils.contains('PACKAGECONFIG', 'grc', 'gnuradio-grc', '', d)}"
 
 PACKAGES = "gnuradio-dbg gnuradio-staticdev gnuradio-dev ${GR_PACKAGES} gnuradio"
@@ -220,7 +221,7 @@ PV = "3.10.12.0+git${SRCPV}"
 
 FILESPATHPKG:prepend = "gnuradio-git:"
 
-SRCREV = "dc812a58372edafee22fe811c07f422ad811fb8d"
+SRCREV = "7a45079b1d42ba7b94b50f23c1414c8d2f334622"
 
 # Make it easy to test against branches
 GIT_BRANCH = "main"
@@ -232,6 +233,7 @@ SRC_URI = "git://github.com/${GITHUB_USER}/gnuradio.git;branch=${GIT_BRANCH};pro
            file://0001-Add-a-sane-default-path-to-the-qa_wavfile-test.patch \
            file://0001-qa_type_conversions.py-This-test-fails-on-a-ZCU104-a.patch \
            file://0001-If-we-can-t-find-gr-newmod-in-the-test-directory-try.patch \
+           file://0001-gr-qtgui-Don-t-build-the-fosphor-display-against-Ope.patch \
            file://run-ptest \
           "
 
@@ -255,22 +257,51 @@ do_install:append() {
     find ${D} -name "*.pyo" -exec rm {} \;
 }
 
+# ENABLE_TESTING (default ON upstream) already builds the C++ QA binaries
+# (<component>_qa_*.cc, named after their source file, and gr_fec_rstest) as
+# part of the ordinary do_compile, and generates a <test>_test.sh wrapper next
+# to each Python QA test in the build tree. When cross compiling, GrTest.cmake
+# never registers the C++ binaries with ctest, and each wrapper is reduced to
+# a bare "python3 -B <script>" with no environment, so rather than shipping
+# the CTestTestfile.cmake files and running ctest on target, stage the test
+# binaries and scripts in a tree mirroring ${B} and have run-ptest run them
+# directly -- the same approach as the gnuradio4-* recipes.
 do_install_ptest() {
-    mkdir -p ${D}${PTEST_PATH}
     cd ${B}
-    find . -name "qa*sh" -exec cp --parents {} ${D}${PTEST_PATH} \;
-    find . -name test_modtool_test.sh -exec cp --parents {} ${D}${PTEST_PATH} \;
-    find . -name "CTestTestfile.cmake" -exec cp --parents {} ${D}${PTEST_PATH} \;
-    find . -name "gr_fec_rstest" -exec cp --parents {} ${D}${PTEST_PATH} \;
-    find ${D}${PTEST_PATH} -name "CTestTestfile.cmake" -exec sed -i "s|${B}||g" {} \;
-    find ${D}${PTEST_PATH} -name "CTestTestfile.cmake" -exec sed -i "s|${S}||g" {} \;
 
+    # Python QA tests: install exactly the scripts the generated wrappers
+    # run (the last word of each wrapper's command line), so tests upstream
+    # disabled in CMake stay disabled here too.
+    for sh in $(find . -name "*_test.sh"); do
+        dir=$(dirname ${sh})
+        py=$(sed -n 2p ${sh} | awk '{print $NF}')
+        install -d ${D}${PTEST_PATH}/${dir}
+        install -m 0644 ${S}/${dir}/${py} ${D}${PTEST_PATH}/${dir}/
+    done
+
+    # C++ QA tests
+    for t in $(find . -type f -perm -u+x \( -name "*_qa_*.cc" -o -name gr_fec_rstest \)); do
+        install -d ${D}${PTEST_PATH}/$(dirname ${t})
+        install -m 0755 ${t} ${D}${PTEST_PATH}/$(dirname ${t})/
+    done
+
+    # Helper modules and fixture files the Python QA tests load relative to
+    # their own directory (run-ptest runs each test from its directory):
+    # _qa_helper*.py and file_taps_loader.py are imported as local modules,
+    # qa_wavfile reads its .wav/.mp3 inputs from the current directory (see
+    # 0001-Add-a-sane-default-path-to-the-qa_wavfile-test.patch), and
+    # qa_fecapi_ldpc reads ../../ldpc_alist/*.alist.
     cd ${S}
-    find . -name "qa*py" -exec cp --parents {} ${D}${PTEST_PATH} \;
-    find . -name "_qa*py" -exec cp --parents {} ${D}${PTEST_PATH} \;
-    find . -name "*.alist" -exec cp --parents {} ${D}${PTEST_PATH} \;
-    find . -name file_taps_loader.py -exec cp --parents {} ${D}${PTEST_PATH} \;
-    find . -name test_16bit_1chunk.wav -exec cp --parents {} ${D}${PTEST_PATH} \;
-    find . -name test_16bit_1chunk_normal.wav -exec cp --parents {} ${D}${PTEST_PATH} \;
-    find . -name test_modtool.py -exec cp --parents {} ${D}${PTEST_PATH} \;
+    for f in gr-fec/python/fec/_qa_helper*.py \
+             gr-filter/python/filter/file_taps_loader.py \
+             gr-blocks/python/blocks/test_16bit_1chunk.wav \
+             gr-blocks/python/blocks/test_16bit_1chunk_normal.wav \
+             gr-blocks/python/blocks/test_no_info_frame.mp3 \
+             gr-fec/ldpc_alist/*.alist; do
+        install -D -m 0644 ${f} ${D}${PTEST_PATH}/${f}
+    done
 }
+
+RDEPENDS:${PN}-ptest += "python3-unittest"
+# run-ptest runs the qtgui QA tests on Qt's offscreen platform plugin
+RDEPENDS:${PN}-ptest += "${@bb.utils.contains('PACKAGECONFIG', 'qtgui', 'qtbase-plugins', '', d)}"

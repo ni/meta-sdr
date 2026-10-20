@@ -22,11 +22,13 @@ LIC_FILES_CHKSUM = "file://blocks/analog/LICENSE;md5=8ea682db15fffa46d31a4badd40
 
 SRC_URI = "git://github.com/gnuradio/gr4-incubator.git;protocol=https;branch=main \
            file://0001-blocks-filter-skip-broken-qa_FirDecimator-test.patch \
-           file://0002-tests-include-Graph.hpp-explicitly.patch"
+           file://0002-tests-include-Graph.hpp-explicitly.patch \
+           file://0003-BlockingBackoff-enter-work-through-traverseBlockList.patch \
+           "
 
 # Modify these as desired
 PV = "1.0+git"
-SRCREV = "dd31b1ade39b74d5703d04d94c4cc196a86a44b0"
+SRCREV = "db00f52b1bc9d193709113ac9d096377490051e2"
 
 # cmake/Dependencies.cmake in this repo pulls in imgui/implot/glfw3/OpenGL,
 # SoapySDR, rtaudio and CLI11 only when ENABLE_EXAMPLES is on -- and

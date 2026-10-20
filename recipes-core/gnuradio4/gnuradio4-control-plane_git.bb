@@ -11,12 +11,14 @@ SRC_URI = "git://github.com/gnuradio/gnuradio4-control-plane.git;protocol=https;
            file://0001-defer-gtest-discovery-to-test-time.patch \
            file://0002-allow-overriding-gnuradio4-lib-dir.patch \
            file://0003-allow-overriding-cli-test-executable-path.patch \
+           file://0004-runtime-pass-the-stream-intent-to-the-graph-loader-a.patch \
+           file://0005-test-name-the-Studio-sinks-update-interval-and-input.patch \
            file://run-ptest \
            "
 
 # Modify these as desired
 PV = "1.0+git"
-SRCREV = "b2c04abddd1fb792cc8c7db880050adb0213afb6"
+SRCREV = "155f11aec5aa44225ee161a332af5c619cf7eeea"
 
 DEPENDS = "zlib boost gnuradio4-core cpp-httplib nlohmann-json googletest"
 
