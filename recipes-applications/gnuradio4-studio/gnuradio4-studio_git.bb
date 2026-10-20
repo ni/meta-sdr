@@ -20,7 +20,8 @@ HOMEPAGE = "https://github.com/gnuradio/gnuradio4-studio"
 #   node_modules/source-map-js/LICENSE          -> BSD-3-Clause
 #   node_modules/vite/LICENSE.md                -> MIT
 #   (plus several nested node_modules/*/LICENSE, see LICENSE:${PN}-* below)
-LICENSE = "0BSD AND Apache-2.0 AND BSD-3-Clause AND CC-BY-4.0 AND GPL-3.0-only AND ISC AND MIT"
+# wrynose's oe-core license-format QA doesn't understand SPDX AND yet; use &.
+LICENSE = "0BSD & Apache-2.0 & BSD-3-Clause & CC-BY-4.0 & GPL-3.0-only & ISC & MIT"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=d32239bcb673463ab874e80d47fae504 \
                     file://blocks/LICENSE;md5=dca174369926f2d6038aaf9ee5698d26 \
                     file://node_modules/@alloc/quick-lru/license;md5=915042b5df33c31a6db2b37eadaa00e3 \
